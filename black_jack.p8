@@ -1,8 +1,11 @@
 pico-8 cartridge // http://www.pico-8.com
 version 18
 __lua__
+-- globals
+game_started = false
 all_suits = {'spades', 'hearts', 'diamonds', 'clubs'}
 all_ranks = {'ace', 'king', 'queen', 'jack', '10', '9', '8', '7', '6', '5', '4', '3', '2'}
+all_phases = {blinds='blinds', deal='deal', play='play', dealer_play='dealer_play', settlement='settlement'}
 
 function new_deck()
   local ndeck = {}
@@ -18,7 +21,24 @@ end
 
 deck = new_deck()
 pile = {}
-shown_card = nil
+-- end of globals
+
+-- utils
+function hcenter(s)
+  return 64-#s*2
+end
+
+function vcenter()
+  return 61
+end
+-- end of utils
+
+function init_screen()
+  local msg_1 = "blackjack"
+  local msg_2 = "press x to play"
+  print(msg_1, hcenter(msg_1), 54, 14)
+  print(msg_2, hcenter(msg_2), 64, 7)
+end
 
 function draw_card()
   if #deck == 0 then
@@ -34,21 +54,15 @@ function draw_card()
 end
 
 function _update()
-  if btnp(3) then
-    shown_card = draw_card()
+  if btnp(5) and not game_started then
+    game_started = true
   end
 end
 
 function _draw()
   cls()
 
-  print("deck: "..#deck, 45, 45)
-
-  if shown_card then
-    print("card: "..shown_card['rank']..' '..shown_card['suit'], 45, 64)
-  end
-
-  print("pile: "..#pile, 45, 84)
+  if (not game_started) then init_screen() end
 end
 
 __gfx__
