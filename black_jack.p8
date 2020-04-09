@@ -21,6 +21,9 @@ end
 
 deck = new_deck()
 pile = {}
+phase = all_phases['blinds']
+balance = 500
+wager = 2
 -- end of globals
 
 -- utils
@@ -53,6 +56,15 @@ function draw_card()
   return drawn_card
 end
 
+function render_phase()
+  if phase == all_phases['blinds'] then
+    local msg_q = 'place your bet:'
+    local msg_amt = '$'..wager
+    print(msg_q, hcenter(msg_q), 54, 7)
+    print(msg_amt, hcenter(msg_amt), 64, 3)
+  end
+end
+
 function _update()
   if btnp(5) and not game_started then
     game_started = true
@@ -62,7 +74,11 @@ end
 function _draw()
   cls()
 
-  if (not game_started) then init_screen() end
+  if (game_started) then
+    render_phase()
+  else
+    init_screen()
+  end
 end
 
 __gfx__
