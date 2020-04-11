@@ -21,6 +21,8 @@ end
 
 deck = new_deck()
 pile = {}
+p_hand = {}
+d_hand = {}
 phase = all_phases['blinds']
 max_bet = 500
 min_bet = 2
@@ -36,6 +38,7 @@ function vcenter()
   return 61
 end
 
+function wait(a) for i = 1,a do flip() end end
 -- update
 function draw_card()
   if #deck == 0 then
@@ -51,6 +54,11 @@ function draw_card()
 end
 
 function update_blinds_phase()
+  if btnp(5) then
+    phase = all_phases['deal']
+    return
+  end
+
   local amt = 1
 
   if btnp(0) or btnp(1) then
@@ -84,8 +92,18 @@ function update_blinds_phase()
   end
 end
 
+function update_deal_phase()
+  add(p_hand, draw_card())
+  add(d_hand, draw_card())
+  add(p_hand, draw_card())
+  add(d_hand, draw_card())
+
+  phase = all_phases['play']
+end
+
 function update_phase()
   if phase == all_phases['blinds'] then update_blinds_phase() end
+  if phase == all_phases['deal'] then update_deal_phase() end
 end
 
 function _update()
@@ -117,8 +135,25 @@ function render_blinds_phase()
   print('❎ confirm', 80, 120, 10)
 end
 
+function render_play_phase()
+  local p_cards = p_hand[1].rank..' '..p_hand[1].suit..', '..p_hand[2].rank..' '..p_hand[2].suit
+  print(p_cards, hcenter(p_cards), vcenter() + 20, 7)
+
+  local d_cards = d_hand[1].rank..' '..d_hand[1].suit..', '..d_hand[2].rank..' '..d_hand[2].suit
+  print(d_cards, hcenter(d_cards), vcenter() - 20, 7)
+
+  print('bal: $'..balance, 10, 3, 10)
+  print('bet: $'..wager, 10, 10, 10)
+  print('⬆️ split', 10, 110, 10)
+  print('⬇️ double', 10, 120, 10)
+  print('➡️ insurance', 65, 110, 10)
+  print('🅾️ hit', 65, 120, 10)
+  print('❎ stay', 95, 120, 10)
+end
+
 function render_phase()
   if phase == all_phases['blinds'] then render_blinds_phase() end
+  if phase == all_phases['play'] then render_play_phase() end
 end
 
 function _draw()
