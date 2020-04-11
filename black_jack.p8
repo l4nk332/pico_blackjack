@@ -59,20 +59,44 @@ end
 function render_phase()
   if phase == all_phases['blinds'] then
     local msg_q = 'place your bet:'
-    local msg_amt = '$'..wager
     print(msg_q, hcenter(msg_q), 54, 7)
+    local msg_amt = '$'..wager
     print(msg_amt, hcenter(msg_amt), 64, 3)
+    local msg_bal = 'balance: $'..balance
+    print(msg_bal, hcenter(msg_bal), 10, 10)
+    print('⬆️ +1  ➡️ +10', 10, 110, 10)
+    print('⬇️ -1  ⬅️ -10', 10, 120, 10)
+    print('❎ confirm', 80, 120, 10)
   end
 end
 
 function _update()
   if btnp(5) and not game_started then
     game_started = true
+  elseif phase == all_phases['blinds'] then
+    local amt = 1
+
+    if btnp(0) or btnp(1) then
+      if balance < 10 then
+        amt = balance
+      else
+        amt = 10
+      end
+    end
+
+    if (btnp(1) or btnp(2)) and balance > 0 and wager < 500 then
+      wager += amt
+      balance -= amt
+    elseif (btnp(0) or btnp(3)) and wager > 2 then
+      wager -= amt
+      balance += amt
+    end
   end
 end
 
 function _draw()
   cls()
+  rect(0,0,127,127,7)
 
   if (game_started) then
     render_phase()
