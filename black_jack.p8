@@ -30,7 +30,9 @@ min_bet = 2
 balance = 450
 wager = 50
 insurance = 0
+insurance_applies = false
 is_double_down = false
+did_win = nil
 
 -- utils
 function hcenter(s)
@@ -131,7 +133,7 @@ function update_blinds_phase()
     balance += amt
   elseif btnp(4) then
     amt = min(max_bet, balance)
-    wager += amt
+    wager = amt
     balance -= amt
   end
 end
@@ -166,7 +168,28 @@ function update_play_phase()
 end
 
 function update_settlement_phase()
-  if btnp(5) then reset_play() end
+  if btnp(5) then
+    if did_win == true then
+      balance += (wager * 2) - insurance
+    elseif did_win == false then
+      if insurance_applies and insurance > 0 then
+        balance += insurance * 2
+      else
+        local next_wager = wager
+        if is_double_down then
+          next_wager = flr(wager / 2)
+        end
+        next_wager = min(next_wager, balance)
+
+        -- we do this to set up for next blinds
+        wager = next_wager
+        balance -= next_wager
+      end
+    else
+      balance += wager + insurance
+    end
+    reset_play()
+  end
 end
 
 function update_phase()
@@ -300,9 +323,7 @@ function render_settlement_phase()
   local p_hand_val = value_of_hand(p_hand)
   local d_hand_val = value_of_hand(d_hand)
   local result_phrase = ''
-  local used_insurance = false
   local reveal_dealer = true
-  local did_win
 
   if p_hand_val > 21 then
     result_phrase = 'you busted'
@@ -324,7 +345,7 @@ function render_settlement_phase()
     if d_hand_val == 21 then
       result_phrase = "house wins with blackjack"
       if #d_hand == 2 then
-        used_insurance = true
+        insurance_applies = true
       end
     else
       result_phrase = 'house topped you'
@@ -338,7 +359,7 @@ function render_settlement_phase()
       elseif #d_hand == 2 and #p_hand > 2 then
         result_phrase = "house natural beats soft 21"
         did_win = false
-        used_insurance = true
+        insurance_applies = true
       else
         result_phrase = "it's a push"
         did_win = nil
@@ -357,13 +378,13 @@ function render_settlement_phase()
     amt_str = '$0'
   elseif did_win then
     result_clr = 3
-    amt_str = '+$'..tostr(wager)
+    amt_str = '+$'..tostr((wager * 2) - insurance)
   else
     result_clr = 8
     amt_str = '-$'..tostr(wager + insurance)
   end
 
-  if used_insurance and insurance > 0 then
+  if insurance_applies and insurance > 0 then
     result_clr = 7
     amt_str = "$0 - insured"
   end
