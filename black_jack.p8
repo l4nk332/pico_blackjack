@@ -67,7 +67,7 @@ function value_of_hand(hand)
 end
 
 function can_insure()
-  return insurance == 0 and balance >= flr(wager / 2)
+  return insurance == 0 and balance >= flr(wager / 2) and d_hand[1].rank == 'ace'
 end
 
 function can_double_down()
@@ -75,6 +75,15 @@ function can_double_down()
 end
 
 -- update
+function reset_play()
+  p_hand = {}
+  d_hand = {}
+  phase = all_phases['blinds']
+  wager = min(wager, balance)
+  insurance = 0
+  is_double_down = false
+end
+
 function draw_card()
   if #deck == 0 then
     deck = pile
@@ -156,6 +165,10 @@ function update_play_phase()
   end
 end
 
+function update_settlement_phase()
+  if btnp(5) then reset_play() end
+end
+
 function update_phase()
   if phase == all_phases['blinds'] then
     update_blinds_phase()
@@ -163,6 +176,8 @@ function update_phase()
     update_deal_phase()
   elseif phase == all_phases['play'] then
     update_play_phase()
+  elseif phase == all_phases['settlement'] then
+    update_settlement_phase()
   end
 end
 
@@ -195,19 +210,21 @@ function render_blinds_phase()
   print('❎ confirm', 80, 120, 10)
 end
 
-function render_p_hand()
+function render_p_hand(vshift)
+  vshift = vshift or 0
   local hand_str = ''
   for i=1,#p_hand do
     local t = ', '
     if i == #p_hand then t = '' end
     hand_str = hand_str..p_hand[i].rank..' '..sub(p_hand[i].suit, 1, 1)..t
   end
-  print(hand_str, hcenter(hand_str), vcenter() + 20, 7)
+  print(hand_str, hcenter(hand_str), vcenter() + 20 + vshift, 7)
   local hand_value = tostr(value_of_hand(p_hand))
-  print(hand_value, hcenter(hand_value), vcenter() + 30, 7)
+  print(hand_value, hcenter(hand_value), vcenter() + 30 + vshift, 7)
 end
 
-function render_d_hand(is_face_down)
+function render_d_hand(is_face_down, vshift)
+  vshift = vshift or 0
   local hand_str = ''
   for i=1,#d_hand do
     local t = ', '
@@ -219,10 +236,10 @@ function render_d_hand(is_face_down)
     end
 
   end
-  print(hand_str, hcenter(hand_str), vcenter() - 30, 7)
+  print(hand_str, hcenter(hand_str), vcenter() - 30 + vshift, 7)
   if not is_face_down then
     local hand_value = tostr(value_of_hand(d_hand))
-    print(hand_value, hcenter(hand_value), vcenter() - 20, 7)
+    print(hand_value, hcenter(hand_value), vcenter() - 20 + vshift, 7)
   end
 end
 
@@ -280,21 +297,83 @@ function render_dealer_play_phase()
 end
 
 function render_settlement_phase()
-  local amt_lost = '-$'..tostr(wager + insurance)
-  local amt_won = '+$'..tostr(wager)
-  if value_of_hand(p_hand) > 21 then
-    local bst_str = 'you busted'
-    print(bst_str, hcenter(bst_str), vcenter() - 30, 7)
-    print(amt_lost, hcenter(amt_lost), vcenter() - 20, 8)
-    render_p_hand()
-  elseif value_of_hand(d_hand) > 21 then
-    local bst_str = 'dealer busted'
-    print(bst_str, hcenter(bst_str), vcenter() - 30, 7)
-    print(amt_won, hcenter(amt_won), vcenter() - 20, 3)
-    render_p_hand()
+  local p_hand_val = value_of_hand(p_hand)
+  local d_hand_val = value_of_hand(d_hand)
+  local result_phrase = ''
+  local used_insurance = false
+  local reveal_dealer = true
+  local did_win
+
+  if p_hand_val > 21 then
+    result_phrase = 'you busted'
+    did_win = false
+    reveal_dealer = false
+  elseif d_hand_val > 21 then
+    result_phrase = 'house busted'
+    did_win = true
+  elseif d_hand_val < p_hand_val and p_hand_val <= 21 then
+    if p_hand_val == 21 and #p_hand == 2 then
+      result_phrase = "you're a natural"
+    elseif p_hand_val == 21 and #p_hand > 2 then
+      result_phrase = "quite a soft touch"
+    else
+      result_phrase = 'you topped the house'
+    end
+    did_win = true
+  elseif d_hand_val > p_hand_val and d_hand_val <= 21 then
+    if d_hand_val == 21 then
+      result_phrase = "house wins with blackjack"
+      if #d_hand == 2 then
+        used_insurance = true
+      end
+    else
+      result_phrase = 'house topped you'
+    end
+    did_win = false
+  elseif d_hand_val == p_hand_val then
+    if p_hand_val == 21 then
+      if #p_hand == 2 and #d_hand > 2 then
+        result_phrase = "your natural beats soft 21"
+        did_win = true
+      elseif #d_hand == 2 and #p_hand > 2 then
+        result_phrase = "house natural beats soft 21"
+        did_win = false
+        used_insurance = true
+      else
+        result_phrase = "it's a push"
+        did_win = nil
+      end
+    else
+      result_phrase = "it's a push"
+      did_win = nil
+    end
   else
     print('settlement', hcenter('settlement'), vcenter('settlement'), 7)
   end
+
+  local result_clr, amt_str
+  if did_win == nil then
+    result_clr = 7
+    amt_str = '$0'
+  elseif did_win then
+    result_clr = 3
+    amt_str = '+$'..tostr(wager)
+  else
+    result_clr = 8
+    amt_str = '-$'..tostr(wager + insurance)
+  end
+
+  if used_insurance and insurance > 0 then
+    result_clr = 7
+    amt_str = "$0 - insured"
+  end
+
+  render_d_hand(not reveal_dealer, -20)
+  print(result_phrase, hcenter(result_phrase), vcenter() - 5, 7)
+  print(amt_str, hcenter(amt_str), vcenter() + 5, result_clr)
+  render_p_hand(15)
+
+  print('❎ play again', 70, 120, 10)
 end
 
 function render_phase()
