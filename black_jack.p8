@@ -41,7 +41,7 @@ function vcenter()
   return 61
 end
 
-function wait(a) for i = 1,a do flip() end end
+function wait(s) for i = 1,s*30 do flip() end end
 
 function value_of_hand(hand)
   local value = 0
@@ -65,6 +65,15 @@ function value_of_hand(hand)
 
   return value
 end
+
+function can_insure()
+  return insurance == 0 and balance >= flr(wager / 2)
+end
+
+function can_double_down()
+  return (balance >= wager + insurance) and not is_double_down
+end
+
 -- update
 function draw_card()
   if #deck == 0 then
@@ -127,14 +136,6 @@ function update_deal_phase()
   phase = all_phases['play']
 end
 
-function can_insure()
-  return insurance == 0 and balance >= flr(wager / 2)
-end
-
-function can_double_down()
-  return (balance >= wager + insurance) and not is_double_down
-end
-
 function update_play_phase()
   if btnp(4) then
     add(p_hand, draw_card())
@@ -150,13 +151,19 @@ function update_play_phase()
     local amt = flr(wager / 2)
     insurance = amt
     balance -= amt
+  elseif btnp(5) then
+    phase = all_phases['dealer_play']
   end
 end
 
 function update_phase()
-  if phase == all_phases['blinds'] then update_blinds_phase() end
-  if phase == all_phases['deal'] then update_deal_phase() end
-  if phase == all_phases['play'] then update_play_phase() end
+  if phase == all_phases['blinds'] then
+    update_blinds_phase()
+  elseif phase == all_phases['deal'] then
+    update_deal_phase()
+  elseif phase == all_phases['play'] then
+    update_play_phase()
+  end
 end
 
 function _update()
@@ -200,11 +207,34 @@ function render_p_hand()
   print(hand_value, hcenter(hand_value), vcenter() + 30, 7)
 end
 
+function render_d_hand(is_face_down)
+  local hand_str = ''
+  for i=1,#d_hand do
+    local t = ', '
+    if i == #d_hand then t = '' end
+    if is_face_down and i == 2 then
+      hand_str = hand_str..'???'
+    else
+      hand_str = hand_str..d_hand[i].rank..' '..sub(d_hand[i].suit, 1, 1)..t
+    end
+
+  end
+  print(hand_str, hcenter(hand_str), vcenter() - 30, 7)
+  if not is_face_down then
+    local hand_value = tostr(value_of_hand(d_hand))
+    print(hand_value, hcenter(hand_value), vcenter() - 20, 7)
+  end
+end
+
+function render_funds()
+  print('bal: $'..balance, 10, 3, 10)
+  print('bet: $'..wager, 10, 10, 10)
+  print('ins: $'..insurance, 10, 17, 10)
+end
+
 function render_play_phase()
   render_p_hand()
-
-  local d_cards = d_hand[1].rank..' '..d_hand[1].suit..', '..d_hand[2].rank..' '..d_hand[2].suit
-  print(d_cards, hcenter(d_cards), vcenter() - 20, 7)
+  render_d_hand(true)
 
   local opt_ctl_clr = 10
   if #p_hand > 2 then opt_ctl_clr = 5 end
@@ -226,9 +256,7 @@ function render_play_phase()
     insurance_clr = 5
   end
 
-  print('bal: $'..balance, 10, 3, 10)
-  print('bet: $'..wager, 10, 10, 10)
-  print('ins: $'..insurance, 10, 17, 10)
+  render_funds()
   print('⬆️ split', 10, 110, split_clr)
   print('⬇️ double', 10, 120, double_clr)
   print('➡️ insurance', 65, 110, insurance_clr)
@@ -236,9 +264,33 @@ function render_play_phase()
   print('❎ stay', 95, 120, 10)
 end
 
+
+function render_dealer_play_phase()
+  render_funds()
+  render_p_hand()
+  render_d_hand()
+
+  if value_of_hand(d_hand) < 17 then
+    add(d_hand, draw_card())
+  else
+    phase = all_phases['settlement']
+  end
+
+  wait(2)
+end
+
 function render_settlement_phase()
+  local amt_lost = '-$'..tostr(wager + insurance)
+  local amt_won = '+$'..tostr(wager)
   if value_of_hand(p_hand) > 21 then
-    print('bust', hcenter('bust'), vcenter('bust'), 8)
+    local bst_str = 'you busted'
+    print(bst_str, hcenter(bst_str), vcenter() - 30, 7)
+    print(amt_lost, hcenter(amt_lost), vcenter() - 20, 8)
+    render_p_hand()
+  elseif value_of_hand(d_hand) > 21 then
+    local bst_str = 'dealer busted'
+    print(bst_str, hcenter(bst_str), vcenter() - 30, 7)
+    print(amt_won, hcenter(amt_won), vcenter() - 20, 3)
     render_p_hand()
   else
     print('settlement', hcenter('settlement'), vcenter('settlement'), 7)
@@ -248,6 +300,7 @@ end
 function render_phase()
   if phase == all_phases['blinds'] then render_blinds_phase() end
   if phase == all_phases['play'] then render_play_phase() end
+  if phase == all_phases['dealer_play'] then render_dealer_play_phase() end
   if phase == all_phases['settlement'] then render_settlement_phase() end
 end
 
