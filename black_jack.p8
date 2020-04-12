@@ -1,6 +1,11 @@
 pico-8 cartridge // http://www.pico-8.com
 version 18
 __lua__
+-- pocket blackjack
+-- by l4nk332
+
+cartdata("l4nk332_blackjack")
+
 -- globals
 game_started = false
 all_suits = {'spades', 'hearts', 'diamonds', 'clubs'}
@@ -27,7 +32,10 @@ d_hand = {}
 phase = all_phases['blinds']
 max_bet = 500
 min_bet = 2
-balance = 450
+balance = dget(0)
+if not balance or balance == 0 then
+  balance = 500
+end
 wager = 50
 insurance = 0
 insurance_applies = false
@@ -81,9 +89,9 @@ function reset_play()
   p_hand = {}
   d_hand = {}
   phase = all_phases['blinds']
-  wager = min(wager, balance)
   insurance = 0
   is_double_down = false
+  dset(0, balance)
 end
 
 function draw_card()
@@ -131,10 +139,6 @@ function update_blinds_phase()
   elseif (btnp(0) or btnp(3)) and wager > min_bet then
     wager -= amt
     balance += amt
-  elseif btnp(4) then
-    amt = min(max_bet, balance)
-    wager = amt
-    balance -= amt
   end
 end
 
@@ -192,8 +196,18 @@ function update_settlement_phase()
   end
 end
 
+function update_game_over()
+  if btnp(5) then
+    balance = max_bet
+    wager = 50
+    dset(0, balance)
+  end
+end
+
 function update_phase()
-  if phase == all_phases['blinds'] then
+  if balance <= 0 and wager <= 0 then
+    update_game_over()
+  elseif phase == all_phases['blinds'] then
     update_blinds_phase()
   elseif phase == all_phases['deal'] then
     update_deal_phase()
@@ -229,7 +243,6 @@ function render_blinds_phase()
   print(msg_bal, hcenter(msg_bal), 10, 10)
   print('⬆️ +1  ➡️ +10', 10, 110, 10)
   print('⬇️ -1  ⬅️ -10', 10, 120, 10)
-  print('🅾️ max bet', 80, 110, 10)
   print('❎ confirm', 80, 120, 10)
 end
 
@@ -397,11 +410,22 @@ function render_settlement_phase()
   print('❎ play again', 70, 120, 10)
 end
 
+function render_game_over()
+  local s = 'you broke the bank!'
+  print(s, hcenter(s), vcenter(), 8)
+
+  print('❎ reset balance', 60, 120, 10)
+end
+
 function render_phase()
-  if phase == all_phases['blinds'] then render_blinds_phase() end
-  if phase == all_phases['play'] then render_play_phase() end
-  if phase == all_phases['dealer_play'] then render_dealer_play_phase() end
-  if phase == all_phases['settlement'] then render_settlement_phase() end
+  if true then
+    rect(50, 50, 65, 70, 7)
+    print('q', ((50 + 65) / 2) - 2, ((50 + 70) / 2) - 2, 7)
+  elseif balance <= 0 and wager <= 0 then render_game_over()
+  elseif phase == all_phases['blinds'] then render_blinds_phase()
+  elseif phase == all_phases['play'] then render_play_phase()
+  elseif phase == all_phases['dealer_play'] then render_dealer_play_phase()
+  elseif phase == all_phases['settlement'] then render_settlement_phase() end
 end
 
 function _draw()
