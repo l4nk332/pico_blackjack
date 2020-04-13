@@ -9,6 +9,8 @@ cartdata("l4nk332_blackjack")
 -- globals
 game_started = false
 all_suits = {'spades', 'hearts', 'diamonds', 'clubs'}
+suit_reg = {diamonds=1, hearts=2, spades=3, clubs=4}
+suit_color = {diamonds=8, hearts=8, spades=5, clubs=5}
 all_ranks = {'ace', 'king', 'queen', 'jack', '10', '9', '8', '7', '6', '5', '4', '3', '2'}
 all_values = {{1, 11}, 10, 10, 10, 10, 9, 8, 7, 6, 5, 4, 3, 2}
 all_phases = {blinds='blinds', deal='deal', play='play', dealer_play='dealer_play', settlement='settlement'}
@@ -246,36 +248,46 @@ function render_blinds_phase()
   print('❎ confirm', 80, 120, 10)
 end
 
+function render_card(card, x, y, is_face_down)
+  local reg = suit_reg[card.suit]
+  local clr = suit_color[card.suit]
+  local sym = card.rank
+  if #sym > 2 then sym = sub(sym, 1, 1) end
+
+  if is_face_down then
+    rectfill(x, y, x + 20, y + 25, 8)
+  else
+    rectfill(x, y, x + 20, y + 25, 7)
+    local sym_offset
+    if #sym == 2 then sym_offset = 2 else sym_offset = 6 end
+    print(sym, x + 2, y + 2, clr)
+    print(sym, x + 10 + sym_offset, y + 19, clr)
+    spr(reg, ((x * 2 + 20) / 2) - 3, ((y * 2 + 25) / 2) - 3)
+  end
+end
+
 function render_p_hand(vshift)
   vshift = vshift or 0
-  local hand_str = ''
   for i=1,#p_hand do
-    local t = ', '
-    if i == #p_hand then t = '' end
-    hand_str = hand_str..p_hand[i].rank..' '..sub(p_hand[i].suit, 1, 1)..t
+    render_card(p_hand[i], i * 10, vcenter() + 15 + vshift)
   end
-  print(hand_str, hcenter(hand_str), vcenter() + 20 + vshift, 7)
+
   local hand_value = tostr(value_of_hand(p_hand))
-  print(hand_value, hcenter(hand_value), vcenter() + 30 + vshift, 7)
+  print(hand_value, 10, vcenter() + 7 + vshift, 7)
 end
 
 function render_d_hand(is_face_down, vshift)
   vshift = vshift or 0
-  local hand_str = ''
   for i=1,#d_hand do
-    local t = ', '
-    if i == #d_hand then t = '' end
     if is_face_down and i == 2 then
-      hand_str = hand_str..'???'
+      render_card(d_hand[i], i * 10, vcenter() - 30 + vshift, is_face_down)
     else
-      hand_str = hand_str..d_hand[i].rank..' '..sub(d_hand[i].suit, 1, 1)..t
+      render_card(d_hand[i], i * 10, vcenter() - 30 + vshift)
     end
-
   end
-  print(hand_str, hcenter(hand_str), vcenter() - 30 + vshift, 7)
   if not is_face_down then
     local hand_value = tostr(value_of_hand(d_hand))
-    print(hand_value, hcenter(hand_value), vcenter() - 20 + vshift, 7)
+    print(hand_value, 10, vcenter() - 1 + vshift, 7)
   end
 end
 
@@ -418,10 +430,7 @@ function render_game_over()
 end
 
 function render_phase()
-  if true then
-    rect(50, 50, 65, 70, 7)
-    print('q', ((50 + 65) / 2) - 2, ((50 + 70) / 2) - 2, 7)
-  elseif balance <= 0 and wager <= 0 then render_game_over()
+  if balance <= 0 and wager <= 0 then render_game_over()
   elseif phase == all_phases['blinds'] then render_blinds_phase()
   elseif phase == all_phases['play'] then render_play_phase()
   elseif phase == all_phases['dealer_play'] then render_dealer_play_phase()
@@ -440,9 +449,11 @@ function _draw()
 end
 
 __gfx__
-00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-00700700000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-00077000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-00077000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-00700700000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00000000000880000880088000055000055555500000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00000000008888008888888800555500005555000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00700700088888808888888805555550500550050000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00077000888888888888888805555550555555550000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00077000888888880888888055555555550550550000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00700700088888800088880055055055500550050000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00000000008888000008800000055000000550000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00000000000880000000000000055000000550000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
