@@ -1,7 +1,7 @@
 pico-8 cartridge // http://www.pico-8.com
 version 18
 __lua__
--- pocket blackjack
+-- pico blackjack
 -- by l4nk332
 
 cartdata("l4nk332_blackjack")
@@ -230,9 +230,11 @@ end
 
 -- draw
 function init_screen()
-  local msg_1 = "blackjack"
+  local msg_1a = 'pico'
+  local msg_1b = "blackjack"
   local msg_2 = "press x to play"
-  print(msg_1, hcenter(msg_1), 54, 14)
+  print(msg_1a, (hcenter(msg_1a) - #msg_1b*2) - 1, 54, 14)
+  print(msg_1b, (hcenter(msg_1b) + #msg_1a*2) + 1, 54, 5)
   print(msg_2, hcenter(msg_2), 64, 7)
 end
 
