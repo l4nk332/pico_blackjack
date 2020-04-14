@@ -30,6 +30,7 @@ end
 deck = new_deck()
 pile = {}
 p_hand = {}
+s_hand = {}
 d_hand = {}
 phase = all_phases['blinds']
 max_bet = 500
@@ -42,6 +43,7 @@ wager = 50
 insurance = 0
 insurance_applies = false
 is_double_down = false
+is_split = false
 did_win = nil
 
 -- utils
@@ -78,21 +80,31 @@ function value_of_hand(hand)
   return value
 end
 
+function can_hit()
+  return value_of_hand(p_hand) < 21
+end
+
 function can_insure()
   return insurance == 0 and balance >= flr(wager / 2) and d_hand[1].rank == 'ace'
 end
 
 function can_double_down()
-  return (balance >= wager + insurance) and not is_double_down
+  return value_of_hand(p_hand) < 21 and (balance >= wager + insurance) and not is_double_down
+end
+
+function can_split()
+  return (balance >= wager + insurance) and (p_hand[1].rank == p_hand[2].rank) and not is_split
 end
 
 -- update
 function reset_play()
   p_hand = {}
   d_hand = {}
+  s_hand = {}
   phase = all_phases['blinds']
   insurance = 0
   is_double_down = false
+  is_split = false
   dset(0, balance)
 end
 
@@ -145,33 +157,71 @@ function update_blinds_phase()
 end
 
 function update_deal_phase()
-  add(p_hand, draw_card())
+  -- add(p_hand, draw_card())
+  add(p_hand, {rank='10', suit='hearts', value=10})
   add(d_hand, draw_card())
-  add(p_hand, draw_card())
+  -- add(p_hand, draw_card())
+  add(p_hand, {rank='10', suit='diamonds', value=10})
   add(d_hand, draw_card())
 
   phase = all_phases['play']
 end
 
+function double_wager()
+  balance -= wager
+  wager *= 2
+  if insurance > 0 then insurance = flr(wager / 2) end
+end
+
+function add_insurance()
+  local amt = flr(wager / 2)
+  insurance = amt
+  balance -= amt
+end
+
+function is_split_remaining()
+  return is_split and #s_hand == 1
+end
+
+function swap_split()
+  is_double_down = false
+  local temp = s_hand
+  s_hand = p_hand
+  p_hand = temp
+end
+
 function update_play_phase()
-  if btnp(4) then
+  if btnp(4) and can_hit() then
     add(p_hand, draw_card())
     if value_of_hand(p_hand) > 21 then
-      phase = all_phases['settlement']
+      if is_split_remaining() then
+        swap_split()
+      else
+        phase = all_phases['settlement']
+      end
     end
   elseif btnp(3) and can_double_down() then
     is_double_down = true
-    balance -= wager
-    wager *= 2
-    if insurance > 0 then insurance = flr(wager / 2) end
+    double_wager()
+    add(p_hand, draw_card())
+    phase = all_phases['settlement']
   elseif btnp(1) and can_insure() then
-    local amt = flr(wager / 2)
-    insurance = amt
-    balance -= amt
+    add_insurance()
+  elseif btnp(2) and can_split() then
+    is_split = true
+    p_hand = {p_hand[1]}
+    add(p_hand, draw_card())
+    s_hand = {p_hand[1]}
+    double_wager()
   elseif btnp(5) then
-    phase = all_phases['dealer_play']
+    if is_split_remaining() then
+      swap_split()
+    else
+      phase = all_phases['dealer_play']
+    end
   end
 end
+
 
 function update_settlement_phase()
   if btnp(5) then
@@ -185,7 +235,7 @@ function update_settlement_phase()
         if is_double_down then
           next_wager = flr(wager / 2)
         end
-        next_wager = min(next_wager, balance)
+        next_wager = min(min(next_wager, max_bet), balance)
 
         -- we do this to set up for next blinds
         wager = next_wager
@@ -269,6 +319,16 @@ function render_card(card, x, y, is_face_down)
   end
 end
 
+function render_s_hand(vshift)
+  vshift = vshift or 0
+  for i=1,#p_hand do
+    render_card(s_hand[i], 63 + (i * 10), vcenter() + 15 + vshift)
+  end
+
+  local hand_value = tostr(value_of_hand(s_hand))..' - hand 1'
+  print(hand_value, 74, vcenter() + 7 + vshift, 7)
+end
+
 function render_p_hand(vshift)
   vshift = vshift or 0
   for i=1,#p_hand do
@@ -276,6 +336,11 @@ function render_p_hand(vshift)
   end
 
   local hand_value = tostr(value_of_hand(p_hand))
+  if is_split and is_split_remaining() then
+    hand_value = hand_value..' - hand 1'
+  elseif is_split then
+    hand_value = hand_value..' - hand 2'
+  end
   print(hand_value, 10, vcenter() + 7 + vshift, 7)
 end
 
@@ -302,13 +367,19 @@ end
 
 function render_play_phase()
   render_p_hand()
+  -- TODO: Figure out how to get new card in 2nd hand after split
+  if is_split and #s_hand > 1 then render_s_hand() end
   render_d_hand(true)
 
   local opt_ctl_clr = 10
   if #p_hand > 2 then opt_ctl_clr = 5 end
 
   local split_clr = opt_ctl_clr
-  if p_hand[1].rank != p_hand[2].rank then split_clr = 5 end
+  if is_split then
+    split_clr = 6
+  elseif not can_split() then
+    split_clr = 5
+  end
 
   local double_clr = opt_ctl_clr
   if is_double_down then
@@ -324,11 +395,14 @@ function render_play_phase()
     insurance_clr = 5
   end
 
+  local hit_clr = 10
+  if not can_hit() then hit_clr = 5 end
+
   render_funds()
   print('⬆️ split', 10, 110, split_clr)
   print('⬇️ double', 10, 120, double_clr)
   print('➡️ insurance', 65, 110, insurance_clr)
-  print('🅾️ hit', 65, 120, 10)
+  print('🅾️ hit', 65, 120, hit_clr)
   print('❎ stay', 95, 120, 10)
 end
 
@@ -421,6 +495,7 @@ function render_settlement_phase()
   print(result_phrase, hcenter(result_phrase), vcenter() - 5, 7)
   print(amt_str, hcenter(amt_str), vcenter() + 5, result_clr)
   render_p_hand(15)
+  if is_split then render_s_hand(15) end
 
   print('❎ play again', 70, 120, 10)
 end
