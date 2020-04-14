@@ -258,6 +258,7 @@ function render_card(card, x, y, is_face_down)
 
   if is_face_down then
     rectfill(x, y, x + 20, y + 25, 8)
+    rect(x + 2, y + 2, x + 18, y + 23, 7)
   else
     rectfill(x, y, x + 20, y + 25, 7)
     local sym_offset
