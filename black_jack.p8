@@ -191,6 +191,8 @@ function swap_split()
   add(p_hand, draw_card())
 end
 
+
+-- TODO: Add surrender option with prompt confirming user wants to surrender hand
 function update_play_phase()
   if btnp(4) and can_hit() then
     add(p_hand, draw_card())
