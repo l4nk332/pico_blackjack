@@ -161,7 +161,7 @@ function update_deal_phase()
   add(p_hand, {rank='10', suit='hearts', value=10})
   add(d_hand, draw_card())
   -- add(p_hand, draw_card())
-  add(p_hand, {rank='10', suit='diamonds', value=10})
+  add(p_hand, {rank='10', suit='spades', value=10})
   add(d_hand, draw_card())
 
   phase = all_phases['play']
@@ -188,6 +188,7 @@ function swap_split()
   local temp = s_hand
   s_hand = p_hand
   p_hand = temp
+  add(p_hand, draw_card())
 end
 
 function update_play_phase()
@@ -209,9 +210,9 @@ function update_play_phase()
     add_insurance()
   elseif btnp(2) and can_split() then
     is_split = true
+    s_hand = {p_hand[2]}
     p_hand = {p_hand[1]}
     add(p_hand, draw_card())
-    s_hand = {p_hand[1]}
     double_wager()
   elseif btnp(5) then
     if is_split_remaining() then
@@ -223,6 +224,7 @@ function update_play_phase()
 end
 
 
+-- TODO: Add logic to account for s_hand
 function update_settlement_phase()
   if btnp(5) then
     if did_win == true then
@@ -321,7 +323,7 @@ end
 
 function render_s_hand(vshift)
   vshift = vshift or 0
-  for i=1,#p_hand do
+  for i=1,#s_hand do
     render_card(s_hand[i], 63 + (i * 10), vcenter() + 15 + vshift)
   end
 
@@ -367,7 +369,6 @@ end
 
 function render_play_phase()
   render_p_hand()
-  -- TODO: Figure out how to get new card in 2nd hand after split
   if is_split and #s_hand > 1 then render_s_hand() end
   render_d_hand(true)
 
@@ -410,6 +411,7 @@ end
 function render_dealer_play_phase()
   render_funds()
   render_p_hand()
+  if is_split then render_s_hand() end
   render_d_hand()
 
   if value_of_hand(d_hand) < 17 then
