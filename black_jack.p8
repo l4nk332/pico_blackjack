@@ -96,6 +96,7 @@ function can_split()
   return (balance >= wager + insurance) and (p_hand[1].rank == p_hand[2].rank) and not is_split
 end
 
+
 -- update
 function reset_play()
   p_hand = {}
@@ -184,11 +185,9 @@ function is_split_remaining()
 end
 
 function swap_split()
-  is_double_down = false
   local temp = s_hand
   s_hand = p_hand
   p_hand = temp
-  add(p_hand, draw_card())
 end
 
 
@@ -199,6 +198,7 @@ function update_play_phase()
     if value_of_hand(p_hand) > 21 then
       if is_split_remaining() then
         swap_split()
+        add(p_hand, draw_card())
       else
         phase = all_phases['settlement']
       end
@@ -219,6 +219,7 @@ function update_play_phase()
   elseif btnp(5) then
     if is_split_remaining() then
       swap_split()
+      add(p_hand, draw_card())
     else
       phase = all_phases['dealer_play']
     end
@@ -226,29 +227,41 @@ function update_play_phase()
 end
 
 
--- TODO: Add logic to account for s_hand
 function update_settlement_phase()
+  local wager_amt = wager
+  local insurance_amt = insurance
+  if is_split then
+    wager_amt = wager_amt / 2
+    insurance_amt = insurance_amt / 2
+  end
+
   if btnp(5) then
     if did_win == true then
-      balance += (wager * 2) - insurance
+      balance += (wager_amt * 2) - insurance_amt
     elseif did_win == false then
       if insurance_applies and insurance > 0 then
-        balance += insurance * 2
+        balance += insurance_amt * 2
       else
-        local next_wager = wager
+        local next_wager = wager_amt
         if is_double_down then
-          next_wager = flr(wager / 2)
+          next_wager = flr(wager_amt / 2)
         end
         next_wager = min(min(next_wager, max_bet), balance)
 
         -- we do this to set up for next blinds
-        wager = next_wager
+        wager = wager_amt
         balance -= next_wager
       end
     else
-      balance += wager + insurance
+      balance += wager_amt + insurance_amt
     end
-    reset_play()
+
+    if is_split and #s_hand > 0 then
+      swap_split()
+      s_hand = {}
+    else
+      reset_play()
+    end
   end
 end
 
@@ -333,17 +346,21 @@ function render_s_hand(vshift)
   print(hand_value, 74, vcenter() + 7 + vshift, 7)
 end
 
-function render_p_hand(vshift)
+function render_p_hand(vshift, hand_number)
   vshift = vshift or 0
   for i=1,#p_hand do
     render_card(p_hand[i], i * 10, vcenter() + 15 + vshift)
   end
 
   local hand_value = tostr(value_of_hand(p_hand))
-  if is_split and is_split_remaining() then
-    hand_value = hand_value..' - hand 1'
-  elseif is_split then
-    hand_value = hand_value..' - hand 2'
+  if is_split then
+    if hand_number then
+      hand_value = hand_value..' - hand '..hand_number
+    elseif is_split_remaining() then
+      hand_value = hand_value..' - hand 1'
+    else
+      hand_value = hand_value..' - hand 2'
+    end
   end
   print(hand_value, 10, vcenter() + 7 + vshift, 7)
 end
@@ -434,7 +451,7 @@ function render_settlement_phase()
   if p_hand_val > 21 then
     result_phrase = 'you busted'
     did_win = false
-    reveal_dealer = false
+    if #d_hand < 3 then reveal_dealer = false end
   elseif d_hand_val > 21 then
     result_phrase = 'house busted'
     did_win = true
@@ -479,15 +496,23 @@ function render_settlement_phase()
   end
 
   local result_clr, amt_str
+  local wager_amt = wager
+  local insurance_amt = insurance_amt
+
+  if is_split then
+    wager_amt = wager / 2
+    insurance_amt = insurance / 2
+  end
+
   if did_win == nil then
     result_clr = 7
     amt_str = '$0'
   elseif did_win then
     result_clr = 3
-    amt_str = '+$'..tostr((wager * 2) - insurance)
+    amt_str = '+$'..tostr((wager_amt * 2) - insurance_amt)
   else
     result_clr = 8
-    amt_str = '-$'..tostr(wager + insurance)
+    amt_str = '-$'..tostr(wager_amt + insurance_amt)
   end
 
   if insurance_applies and insurance > 0 then
@@ -498,10 +523,21 @@ function render_settlement_phase()
   render_d_hand(not reveal_dealer, -20)
   print(result_phrase, hcenter(result_phrase), vcenter() - 5, 7)
   print(amt_str, hcenter(amt_str), vcenter() + 5, result_clr)
-  render_p_hand(15)
-  if is_split then render_s_hand(15) end
 
-  print('❎ play again', 70, 120, 10)
+  local hand_number
+  if is_split then
+    if #s_hand > 0 then hand_number = '1' else hand_number = '2' end
+  end
+
+  render_p_hand(15, hand_number)
+
+  local adv_msg
+  if #s_hand > 0 then
+    adv_msg = 'next hand'
+  else
+    adv_msg = 'play again'
+  end
+  print('❎ '..adv_msg, 70, 120, 10)
 end
 
 function render_game_over()
