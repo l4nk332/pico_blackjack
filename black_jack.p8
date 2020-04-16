@@ -158,11 +158,9 @@ function update_blinds_phase()
 end
 
 function update_deal_phase()
-  -- add(p_hand, draw_card())
-  add(p_hand, {rank='10', suit='hearts', value=10})
+  add(p_hand, draw_card())
   add(d_hand, draw_card())
-  -- add(p_hand, draw_card())
-  add(p_hand, {rank='10', suit='spades', value=10})
+  add(p_hand, draw_card())
   add(d_hand, draw_card())
 
   phase = all_phases['play']
