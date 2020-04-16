@@ -249,7 +249,7 @@ function update_settlement_phase()
         next_wager = min(min(next_wager, max_bet), balance)
 
         -- we do this to set up for next blinds
-        wager = wager_amt
+        if not is_split or #s_hand == 0 then wager = next_wager end
         balance -= next_wager
       end
     else
@@ -497,7 +497,7 @@ function render_settlement_phase()
 
   local result_clr, amt_str
   local wager_amt = wager
-  local insurance_amt = insurance_amt
+  local insurance_amt = insurance
 
   if is_split then
     wager_amt = wager / 2
@@ -565,6 +565,15 @@ function _draw()
     init_screen()
   end
 end
+
+function reset_balance()
+  dset(0, 0)
+  balance = 500
+  wager = 50
+  reset_play()
+end
+
+menuitem(2, 'reset balance', reset_balance)
 
 __gfx__
 00000000000880000880088000055000055555500000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
