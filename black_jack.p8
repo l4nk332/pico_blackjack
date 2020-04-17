@@ -286,16 +286,20 @@ function update_settlement_phase()
   end
 end
 
+function reset_balance()
+  balance = 500
+  wager = 50
+  reset_play()
+end
+
 function update_game_over()
   if btnp(5) then
-    balance = max_bet
-    wager = 50
-    dset(0, balance)
+    reset_balance()
   end
 end
 
 function update_phase()
-  if balance <= 0 and wager <= 0 then
+  if (balance <= 0 and wager <= 0) or balance < -10000 then
     update_game_over()
   elseif phase == all_phases['blinds'] then
     update_blinds_phase()
@@ -576,8 +580,27 @@ function render_game_over()
   print('❎ reset balance', 60, 120, 10)
 end
 
+function render_you_win()
+  local s1 = 'you rake in the last of the'
+  local s2 = 'chips, tip your hat, and'
+  local s3 = 'ride off into the distance.'
+  local s4 = 'you arrived nameless and'
+  local s5 = 'unknown but you left a'
+  local s6 = 'folktale legend...'
+  local s7 = 'blackjack'
+  print(s1, hcenter(s1), 10, 7)
+  print(s2, hcenter(s2), 25, 7)
+  print(s3, hcenter(s3), 40, 7)
+  print(s4, hcenter(s4), 55, 7)
+  print(s5, hcenter(s5), 70, 7)
+  print(s6, hcenter(s6), 85, 7)
+  print(s7, hcenter(s7), 100, 5)
+  print('❎ restart game', 60, 120, 10)
+end
+
 function render_phase()
-  if balance <= 0 and wager <= 0 then render_game_over()
+  if balance < -10000 then render_you_win()
+  elseif balance <= 0 and wager <= 0 then render_game_over()
   elseif phase == all_phases['blinds'] then render_blinds_phase()
   elseif phase == all_phases['play'] then render_play_phase()
   elseif phase == all_phases['dealer_play'] then render_dealer_play_phase()
@@ -609,13 +632,6 @@ function _draw()
   else
     init_screen()
   end
-end
-
-function reset_balance()
-  dset(0, 0)
-  balance = 500
-  wager = 50
-  reset_play()
 end
 
 menuitem(2, 'reset balance', reset_balance)
