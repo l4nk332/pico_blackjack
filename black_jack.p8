@@ -44,6 +44,7 @@ insurance = 0
 insurance_applies = false
 is_double_down = false
 is_split = false
+is_surrender = false
 did_win = nil
 
 -- utils
@@ -96,6 +97,10 @@ function can_split()
   return (balance >= wager + insurance) and (p_hand[1].rank == p_hand[2].rank) and not is_split
 end
 
+function can_surrender()
+  return not (is_split or insurance > 0 or #p_hand > 2 or value_of_hand(p_hand) == 21)
+end
+
 
 -- update
 function reset_play()
@@ -106,6 +111,7 @@ function reset_play()
   insurance = 0
   is_double_down = false
   is_split = false
+  is_surrender = false
   dset(0, balance)
 end
 
@@ -188,15 +194,17 @@ function swap_split()
   p_hand = temp
 end
 
-
--- TODO: Add surrender option with prompt confirming user wants to surrender hand
 function update_play_phase()
-  if btnp(4) and can_hit() then
+  if btnp(5) and can_hit() then
     add(p_hand, draw_card())
     if value_of_hand(p_hand) > 21 then
-      if is_split_remaining() then
-        swap_split()
-        add(p_hand, draw_card())
+      if is_split then
+        if is_split_remaining() then
+          swap_split()
+          add(p_hand, draw_card())
+        elseif value_of_hand(p_hand) <= 21 or value_of_hand(s_hand) <= 21 then
+          phase = all_phases['dealer_play']
+        end
       else
         phase = all_phases['settlement']
       end
@@ -205,22 +213,37 @@ function update_play_phase()
     is_double_down = true
     double_wager()
     add(p_hand, draw_card())
-    phase = all_phases['settlement']
-  elseif btnp(1) and can_insure() then
+    if value_of_hand(p_hand) > 21 then
+      phase = all_phases['settlement']
+    else
+      phase = all_phases['dealer_play']
+    end
+  elseif btnp(0) and can_insure() then
     add_insurance()
+  elseif btnp(1) and can_surrender() then
+    is_surrender = true
   elseif btnp(2) and can_split() then
     is_split = true
     s_hand = {p_hand[2]}
     p_hand = {p_hand[1]}
     add(p_hand, draw_card())
     double_wager()
-  elseif btnp(5) then
+  elseif btnp(4) then
     if is_split_remaining() then
       swap_split()
       add(p_hand, draw_card())
     else
       phase = all_phases['dealer_play']
     end
+  end
+end
+
+function update_surrender()
+  if btnp(4) then
+    is_surrender = false
+  elseif btnp(5) then
+    balance -= ceil(wager / 2)
+    reset_play()
   end
 end
 
@@ -288,6 +311,8 @@ end
 function _update()
   if btnp(5) and not game_started then
     game_started = true
+  elseif is_surrender then
+    update_surrender()
   else
     update_phase()
   end
@@ -413,15 +438,21 @@ function render_play_phase()
     insurance_clr = 5
   end
 
+  local srndr_clr = opt_ctl_clr
+  if not can_surrender() then
+    srndr_clr = 5
+  end
+
   local hit_clr = 10
   if not can_hit() then hit_clr = 5 end
 
   render_funds()
   print('⬆️ split', 10, 110, split_clr)
   print('⬇️ double', 10, 120, double_clr)
-  print('➡️ insurance', 65, 110, insurance_clr)
-  print('🅾️ hit', 65, 120, hit_clr)
-  print('❎ stay', 95, 120, 10)
+  print('⬅️ ins', 65, 110, insurance_clr)
+  print('➡️ srnd', 95, 110, srndr_clr)
+  print('❎ hit', 65, 120, hit_clr)
+  print('🅾️ stay', 95, 120, 10)
 end
 
 
@@ -513,7 +544,7 @@ function render_settlement_phase()
     amt_str = '-$'..tostr(wager_amt + insurance_amt)
   end
 
-  if insurance_applies and insurance > 0 then
+  if did_win == false and insurance_applies and insurance > 0 then
     result_clr = 7
     amt_str = "$0 - insured"
   end
@@ -553,12 +584,28 @@ function render_phase()
   elseif phase == all_phases['settlement'] then render_settlement_phase() end
 end
 
+function render_surrender()
+  local title = 'surrender?'
+  local text = 'you will lose half your wager'
+  local wager_amt = '-$'..tostr(ceil(wager / 2))
+
+  print(title, hcenter(title), vcenter() - 15, 7)
+  print(text, hcenter(text), vcenter() - 5, 7)
+  print(wager_amt, hcenter(wager_amt), vcenter() + 5, 8)
+  print('❎ yes', 65, 120, 10)
+  print('🅾️ no', 95, 120, 10)
+end
+
 function _draw()
   cls()
   rect(0,0,127,127,7)
 
   if (game_started) then
-    render_phase()
+    if is_surrender then
+      render_surrender()
+    else
+      render_phase()
+    end
   else
     init_screen()
   end
